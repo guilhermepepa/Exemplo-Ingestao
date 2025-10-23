@@ -1,0 +1,61 @@
+services:
+
+  minio:
+    image: quay.io/minio/minio:${MINIO_VERSION}
+    container_name: minio-datalake
+    hostname: minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=exemploingestao
+      - MINIO_ROOT_PASSWORD=exemploingestao
+      - TZ="America/Sao_Paulo"
+    volumes:
+      - ./minio/data:/data
+    networks:
+      - exemplo-ingestao-network
+      
+  minio-setup:
+    image: minio/mc:${MINIO_MC_VERSION}
+    container_name: minio-datalake-setup
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Aguardando o MinIO ficar pronto...';
+      until (/usr/bin/mc alias set local http://minio:9000 exemploingestao exemploingestao) do echo '...tentando novamente...' && sleep 1; done;
+      echo 'MinIO pronto. Criando buckets...';
+      /usr/bin/mc mb local/bronze --ignore-existing;
+      echo 'Bucket criado.';
+      "
+    networks:
+      - exemplo-ingestao-network
+      
+  nifi:
+    image: apache/nifi:${NIFI_VERSION}
+    container_name: nifi-ingestion
+    hostname: nifi
+    environment:
+      - NIFI_WEB_HTTPS_PORT=9443
+      - SINGLE_USER_CREDENTIALS_USERNAME=exemploingestao
+      - SINGLE_USER_CREDENTIALS_PASSWORD=exemploingestao
+      - TZ="America/Sao_Paulo"
+    volumes:
+      - nifi_conf:/opt/nifi/nifi-current/conf
+      - nifi_data:/opt/nifi/nifi-current/database_repository
+    depends_on:
+      - minio
+    ports:
+      - 9443:9443
+    networks:
+      - exemplo-ingestao-network
+
+volumes:
+  nifi_conf:
+  nifi_data:
+
+networks:
+  exemplo-ingestao-network:
+    driver: bridge  

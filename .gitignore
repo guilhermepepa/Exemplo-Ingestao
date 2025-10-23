@@ -1,0 +1,13 @@
+# Dados e estado das aplicações
+minio/
+
+# Logs
+logs/
+*.log
+
+# Arquivos de sistema e IDEs
+.DS_Store
+.vscode/
+.idea/
+__pycache__/
+*.pyc
